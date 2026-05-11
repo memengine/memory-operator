@@ -9,6 +9,7 @@ import {
   FileClock,
   Layers3,
   ListChecks,
+  Recycle,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/dead-letter", label: "Dead Letter", icon: AlertOctagon },
   { href: "/costs", label: "Cost Monitor", icon: Coins },
   { href: "/backfill", label: "Backfill", icon: FileClock },
+  { href: "/lifecycle", label: "Lifecycle", icon: Recycle },
   { href: "/audit", label: "Audit Log", icon: ListChecks },
 ];
 
