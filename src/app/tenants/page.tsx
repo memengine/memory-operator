@@ -4,15 +4,34 @@ import { Building2, RefreshCcw, TriangleAlert } from "lucide-react";
 import useSWR from "swr";
 
 import { TenantTable } from "@/components/tenant-table";
+import type { TenantQuickViewData } from "@/components/tenant-quick-view";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getAllTenants, TenantSummary } from "@/lib/admin-api";
+import { getAllTenants } from "@/lib/admin-api";
 
-function filterNeedsAttention(tenants: TenantSummary[]) {
+function isStaleIntegration(lastApiCall: string | null) {
+  if (!lastApiCall) {
+    return false;
+  }
+  return Date.now() - new Date(lastApiCall).getTime() > 7 * 24 * 60 * 60 * 1000;
+}
+
+function filterNeedsAttention(tenants: TenantQuickViewData[]) {
   return tenants.filter(
     (tenant) =>
       tenant.quota_mode === "PASSTHROUGH" ||
       tenant.quota_mode === "BLOCKED" ||
-      tenant.dead_job_count > 0,
+      tenant.dead_job_count > 0 ||
+      (tenant.requires_attention ?? 0) > 0 ||
+      (tenant.auto_resolution_rate !== null &&
+        tenant.auto_resolution_rate !== undefined &&
+        tenant.auto_resolution_rate < 0.5) ||
+      (tenant.extraction_success_rate !== null &&
+        tenant.extraction_success_rate !== undefined &&
+        tenant.extraction_success_rate < 0.4) ||
+      (tenant.nothing_to_extract_rate !== null &&
+        tenant.nothing_to_extract_rate !== undefined &&
+        tenant.nothing_to_extract_rate > 0.5) ||
+      isStaleIntegration(tenant.last_api_call),
   );
 }
 
@@ -26,7 +45,7 @@ export default function TenantsPage() {
     },
   );
 
-  const tenants = data?.tenants ?? [];
+  const tenants = (data?.tenants ?? []) as TenantQuickViewData[];
   const needsAttention = filterNeedsAttention(tenants);
 
   return (
