@@ -11,6 +11,22 @@ export type CircuitStatus = {
   failure_count: number;
 };
 
+export type LlmProviderStatus = {
+  name: string;
+  state: CircuitState;
+  failures: number;
+  configured?: boolean;
+  last_failure_at?: string | null;
+};
+
+export type ProviderUsageResponse = {
+  data: {
+    last_hour: Record<string, number>;
+    active_provider: string | null;
+  };
+  generated_at: string;
+};
+
 export type QueueStatus = {
   name: string;
   depth: number;
@@ -21,6 +37,7 @@ export type QueueStatus = {
 
 export type SystemHealthResponse = {
   circuits: CircuitStatus[];
+  llm_providers: LlmProviderStatus[];
   queues: QueueStatus[];
   overall_status: OverallStatus;
   generated_at: string;
@@ -37,6 +54,15 @@ export type TenantSummary = {
   dead_job_count: number;
   last_api_call: string | null;
   needs_attention: boolean;
+  cross_user_conflicts_pending?: number;
+  requires_attention?: number;
+  clarifications_pending?: number;
+  auto_resolution_rate?: number | null;
+  extraction_success_rate?: number | null;
+  nothing_to_extract_rate?: number | null;
+  avg_extraction_tokens?: number | null;
+  total_extraction_calls_mtd?: number;
+  hot_memories_count?: number;
 };
 
 export type AllTenantsResponse = {
@@ -101,6 +127,7 @@ export type DeadLetterJob = {
   attempts: number;
   queue_name: string | null;
   error: string | null;
+  error_type?: string | null;
   payload?: Record<string, unknown> | null;
   queued_at: string | null;
   started_at: string | null;
@@ -139,6 +166,10 @@ export type CostSummaryTenant = {
   company_name: string;
   tokens: number;
   estimated_cost_usd: number;
+  extraction_success_rate?: number | null;
+  conflicts_resolved_mtd?: number | null;
+  nothing_to_extract_rate?: number | null;
+  add_calls?: number;
 };
 
 export type CostSummaryResponse = {
@@ -150,6 +181,33 @@ export type CostSummaryResponse = {
   estimated_savings_from_gate_usd: number;
   projected_month_cost_usd: number;
   cost_is_estimate: boolean;
+  avg_extraction_tokens?: number;
+  total_extraction_calls_mtd?: number;
+  extraction_success_rate?: number | null;
+  nothing_to_extract_rate?: number | null;
+  top_5_by_nothing_to_extract?: Array<{
+    tenant_id: string;
+    company_name: string;
+    rate: number;
+    add_calls: number;
+  }>;
+  conflict_types_breakdown?: Partial<
+    Record<
+      | "FACT_UPDATE"
+      | "PREFERENCE_CHANGE"
+      | "NEGATION"
+      | "SKILL_PROGRESSION"
+      | "NUMERIC_UPDATE"
+      | "TEMPORAL_SHIFT",
+      number
+    >
+  >;
+  total_conflicts_resolved_mtd?: number;
+  cross_user_conflicts_pending_total?: number;
+  auto_resolution_rate_avg?: number | null;
+  clarifications_triggered_mtd?: number;
+  clarifications_resolved_mtd?: number;
+  clarification_resolution_rate?: number | null;
 };
 
 export type BackfillJobResponse = {
@@ -214,6 +272,10 @@ export async function adminFetch<T>(
 
 export function getSystemHealth() {
   return adminFetch<SystemHealthResponse>("system-health");
+}
+
+export function getProviderUsage() {
+  return adminFetch<ProviderUsageResponse>("provider-usage");
 }
 
 export function resetCircuit(name: string) {
