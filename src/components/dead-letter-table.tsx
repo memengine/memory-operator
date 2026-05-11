@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight, RefreshCcw, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Copy, RefreshCcw, Trash2 } from "lucide-react";
 import { Fragment } from "react";
 
 import {
@@ -9,6 +9,7 @@ import {
   discardDeadLetterJob,
   retryDeadLetterJob,
 } from "@/lib/admin-api";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -21,6 +22,53 @@ function formatTimestamp(value: string | null) {
     return "Unavailable";
   }
   return new Date(value).toLocaleString();
+}
+
+function legacyErrorMessage(error: string | null | undefined) {
+  return !error || error.trim().toLowerCase() === "error";
+}
+
+function errorTypeBadge(errorType: string | null | undefined) {
+  switch (errorType) {
+    case "llm_provider_unavailable_503":
+      return { label: "LLM 503", className: "border-red-500/40 bg-red-500/15 text-red-100" };
+    case "llm_rate_limited_429":
+      return { label: "Rate Limited", className: "border-amber-500/40 bg-amber-500/15 text-amber-100" };
+    case "llm_auth_failed":
+      return { label: "Auth Failed", className: "border-red-500/40 bg-red-500/15 text-red-100" };
+    case "timeout":
+      return { label: "Timeout", className: "border-amber-500/40 bg-amber-500/15 text-amber-100" };
+    case "connection_error":
+      return { label: "Connection", className: "border-amber-500/40 bg-amber-500/15 text-amber-100" };
+    case "llm_invalid_response":
+      return { label: "Bad Response", className: "border-purple-500/40 bg-purple-500/15 text-purple-100" };
+    case "missing_extraction_spec":
+      return { label: "Config Error", className: "border-red-500/40 bg-red-500/15 text-red-100" };
+    case "unknown_error":
+      return { label: "Unknown", className: "border-slate-600 bg-slate-800/70 text-slate-200" };
+    default:
+      return { label: "Legacy", className: "border-slate-600 bg-slate-800/70 text-slate-200" };
+  }
+}
+
+function formatPayloadMessages(payload: Record<string, unknown> | null | undefined) {
+  const messages = Array.isArray(payload?.messages) ? payload.messages : [];
+  const formatted = messages
+    .map((message) => {
+      if (!message || typeof message !== "object") {
+        return null;
+      }
+      const record = message as Record<string, unknown>;
+      const role = typeof record.role === "string" ? record.role : "unknown";
+      const content = typeof record.content === "string" ? record.content : JSON.stringify(record.content ?? "");
+      return `[${role}]: ${content}`;
+    })
+    .filter((line): line is string => Boolean(line));
+
+  return {
+    count: formatted.length,
+    text: formatted.join("\n"),
+  };
 }
 
 type DeadLetterTableProps = {
@@ -93,6 +141,10 @@ export function DeadLetterTable({
     } finally {
       setPendingTenantId(null);
     }
+  }
+
+  async function copyText(value: string) {
+    await navigator.clipboard.writeText(value);
   }
 
   return (
@@ -184,7 +236,15 @@ export function DeadLetterTable({
                           <TableCell>{truncate(job.external_user_id, 20)}</TableCell>
                           <TableCell>{formatTimestamp(job.dead_lettered_at)}</TableCell>
                           <TableCell className="max-w-xs whitespace-normal text-slate-300">
-                            {truncate(job.error ?? "Unknown failure", 80)}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span>{truncate(job.error ?? "Unknown failure", 70)}</span>
+                              <Badge
+                                variant="outline"
+                                className={errorTypeBadge(job.error_type).className}
+                              >
+                                {errorTypeBadge(job.error_type).label}
+                              </Badge>
+                            </div>
                           </TableCell>
                           <TableCell className="py-4 text-right">
                             <div className="flex justify-end gap-2">
@@ -213,20 +273,50 @@ export function DeadLetterTable({
                             <TableCell colSpan={5} className="px-4 py-4 whitespace-normal">
                               <div className="grid gap-4 lg:grid-cols-2">
                                 <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-                                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-300">
-                                    Full error
-                                  </p>
-                                  <p className="mt-3 text-sm leading-6 text-slate-300">
-                                    {job.error ?? "No error message returned by the API."}
-                                  </p>
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-300">
+                                      Full error
+                                    </p>
+                                    {!legacyErrorMessage(job.error) ? (
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="border-slate-700 bg-slate-950/40 text-slate-100 hover:bg-slate-800"
+                                        onClick={() => copyText(job.error ?? "")}
+                                      >
+                                        <Copy className="size-3.5" />
+                                        Copy error
+                                      </Button>
+                                    ) : null}
+                                  </div>
+                                  {legacyErrorMessage(job.error) ? (
+                                    <p className="mt-3 text-sm leading-6 text-slate-400">
+                                      Error details not available. This job was created before full error capture was enabled.
+                                    </p>
+                                  ) : (
+                                    <pre className="mt-3 max-h-52 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-200">
+                                      {job.error}
+                                    </pre>
+                                  )}
                                 </div>
                                 <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-300">
                                     Conversation payload
                                   </p>
-                                  <p className="mt-3 text-sm leading-6 text-slate-400">
-                                    Not available from the current internal API payload.
-                                  </p>
+                                  {formatPayloadMessages(job.payload).count === 0 ? (
+                                    <p className="mt-3 text-sm leading-6 text-slate-400">
+                                      Conversation not recorded. This job was created before payload capture was enabled. Future jobs will show the conversation.
+                                    </p>
+                                  ) : (
+                                    <>
+                                      <p className="mt-3 text-sm text-slate-400">
+                                        {formatPayloadMessages(job.payload).count} messages in conversation
+                                      </p>
+                                      <pre className="mt-3 max-h-52 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-800 bg-slate-950 p-3 font-mono text-xs leading-5 text-slate-200">
+                                        {formatPayloadMessages(job.payload).text}
+                                      </pre>
+                                    </>
+                                  )}
                                 </div>
                                 <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4 lg:col-span-2">
                                   <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-300">
