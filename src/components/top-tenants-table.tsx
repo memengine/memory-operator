@@ -16,9 +16,21 @@ function formatInteger(value: number) {
 }
 
 type TopTenantsTableProps = {
-  rows: CostSummaryTenant[];
+  rows: Array<
+    CostSummaryTenant & {
+      extraction_success_rate?: number | null;
+      conflicts_resolved_mtd?: number | null;
+    }
+  >;
   totalCost: number;
 };
+
+function formatPercent(value: number | null | undefined) {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  return `${(value * 100).toFixed(1)}%`;
+}
 
 export function TopTenantsTable({ rows, totalCost }: TopTenantsTableProps) {
   if (totalCost <= 0 || rows.length === 0) {
@@ -38,12 +50,16 @@ export function TopTenantsTable({ rows, totalCost }: TopTenantsTableProps) {
             <th className="py-3 font-medium">Company</th>
             <th className="py-3 font-medium">Tokens Used</th>
             <th className="py-3 font-medium">Est. Cost</th>
+            <th className="py-3 font-medium">Success Rate</th>
+            <th className="py-3 font-medium">Conflicts</th>
             <th className="px-4 py-3 font-medium">% of Total</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((tenant, index) => {
             const pct = totalCost > 0 ? (tenant.estimated_cost_usd / totalCost) * 100 : 0;
+            const successRate = tenant.extraction_success_rate;
+            const conflicts = tenant.conflicts_resolved_mtd ?? 0;
             return (
               <tr
                 key={tenant.tenant_id}
@@ -58,6 +74,35 @@ export function TopTenantsTable({ rows, totalCost }: TopTenantsTableProps) {
                 </td>
                 <td className="py-4 tabular-nums">{formatInteger(tenant.tokens)}</td>
                 <td className="py-4 tabular-nums">{formatCurrency(tenant.estimated_cost_usd, 2)}</td>
+                <td
+                  className={`py-4 tabular-nums ${
+                    successRate !== null &&
+                    successRate !== undefined &&
+                    successRate < 0.5
+                      ? "text-red-300"
+                      : "text-slate-200"
+                  }`}
+                  title={
+                    successRate !== null &&
+                    successRate !== undefined &&
+                    successRate < 0.5
+                      ? "Tenant may have integration issues"
+                      : undefined
+                  }
+                >
+                  {formatPercent(successRate)}
+                </td>
+                <td className="py-4">
+                  {conflicts > 100 ? (
+                    <span className="rounded-full border border-purple-400/30 bg-purple-500/15 px-2.5 py-1 text-xs font-medium text-purple-100">
+                      {formatInteger(conflicts)}
+                    </span>
+                  ) : (
+                    <span className="tabular-nums text-slate-300">
+                      {formatInteger(conflicts)}
+                    </span>
+                  )}
+                </td>
                 <td className="px-4 py-4">
                   <div className="flex items-center gap-3">
                     <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-800">
