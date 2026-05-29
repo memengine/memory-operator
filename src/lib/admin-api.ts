@@ -244,6 +244,27 @@ export type AuditLogsResponse = {
   end_date: string;
 };
 
+export type GlobalAgentVerificationRecord = {
+  id: string;
+  owner_tenant_id: string;
+  owner_tenant_name: string;
+  name: string;
+  description: string | null;
+  website_url: string | null;
+  logo_url: string | null;
+  default_categories_requested: string[];
+  is_verified: boolean;
+  is_public: boolean;
+  is_active: boolean;
+  grants_count: number;
+  created_at: string;
+};
+
+export type GlobalAgentVerificationResponse = {
+  data: GlobalAgentVerificationRecord[];
+  generated_at: string;
+};
+
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
   return text ? (JSON.parse(text) as T) : ({} as T);
@@ -332,4 +353,15 @@ export function getAuditLogs(params?: {
   });
   const suffix = searchParams.toString();
   return adminFetch<AuditLogsResponse>(suffix ? `audit-logs?${suffix}` : "audit-logs");
+}
+
+export function getGlobalAgentsForVerification(statusFilter: "pending" | "verified" | "all" = "pending") {
+  return adminFetch<GlobalAgentVerificationResponse>(`global-agents?status_filter=${statusFilter}`);
+}
+
+export function updateGlobalAgentVerification(agentId: string, isVerified: boolean) {
+  return adminFetch<GlobalAgentVerificationRecord>(`global-agents/${agentId}/verification`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_verified: isVerified }),
+  });
 }
