@@ -10,6 +10,7 @@ import {
   Layers3,
   ListChecks,
   Recycle,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
   { href: "/tenants", label: "All Tenants", icon: Layers3 },
   { href: "/dead-letter", label: "Dead Letter", icon: AlertOctagon },
   { href: "/costs", label: "Cost Monitor", icon: Coins },
+  { href: "/global-agents", label: "Agent Verification", icon: ShieldCheck },
   { href: "/backfill", label: "Backfill", icon: FileClock },
   { href: "/lifecycle", label: "Lifecycle", icon: Recycle },
   { href: "/audit", label: "Audit Log", icon: ListChecks },
