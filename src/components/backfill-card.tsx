@@ -33,14 +33,14 @@ function formatDuration(startedAt: string, completedAt?: string | null) {
 
 function formatEta(seconds: number | null, status: string, processedRows: number) {
   if (status === "complete") return "Done";
-  if (status === "failed") return "—";
+  if (status === "failed") return "-";
   if (status === "running" && processedRows === 0) return "Calculating...";
   if (status === "running" && seconds !== null) {
     if (seconds < 60) return `~${seconds}s remaining`;
     const minutes = Math.round(seconds / 60);
     return `~${minutes} minute${minutes === 1 ? "" : "s"} remaining`;
   }
-  return "—";
+  return "-";
 }
 
 function statusMeta(status: string) {
@@ -74,7 +74,11 @@ type BackfillCardProps = {
 
 export function BackfillCard({ job }: BackfillCardProps) {
   const meta = statusMeta(job.status);
-  const progressValue = job.pct_complete === null ? 35 : Math.min(100, Math.max(0, job.pct_complete));
+  const progressValue = job.status === "complete"
+    ? 100
+    : job.pct_complete === null
+      ? 35
+      : Math.min(100, Math.max(0, job.pct_complete));
 
   return (
     <article className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6">
