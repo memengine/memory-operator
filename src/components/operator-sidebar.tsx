@@ -5,12 +5,14 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   AlertOctagon,
+  Building2,
   Coins,
   FileClock,
   Layers3,
   ListChecks,
   Recycle,
   ShieldCheck,
+  Waypoints,
 } from "lucide-react";
 
 const navItems = [
@@ -19,6 +21,8 @@ const navItems = [
   { href: "/dead-letter", label: "Dead Letter", icon: AlertOctagon },
   { href: "/costs", label: "Cost Monitor", icon: Coins },
   { href: "/global-agents", label: "Agent Verification", icon: ShieldCheck },
+  { href: "/organisations", label: "Organisation Reviews", icon: Building2 },
+  { href: "/provenance-issues", label: "Provenance Issues", icon: Waypoints },
   { href: "/backfill", label: "Backfill", icon: FileClock },
   { href: "/lifecycle", label: "Lifecycle", icon: Recycle },
   { href: "/audit", label: "Audit Log", icon: ListChecks },
