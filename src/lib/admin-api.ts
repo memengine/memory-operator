@@ -43,6 +43,50 @@ export type SystemHealthResponse = {
   generated_at: string;
 };
 
+export type ProvenanceHealthResponse = {
+  memories_total: number;
+  memories_with_provenance: number;
+  coverage_pct: number;
+  tenant_memories_total: number;
+  tenant_memories_with_provenance: number;
+  tenant_coverage_pct: number;
+  passport_memories_total: number;
+  passport_memories_with_provenance: number;
+  passport_coverage_pct: number;
+  tenant_claims_disputed: number;
+  passport_claims_disputed: number;
+  revoked_grant_memories: number;
+  missing_service_writers: number;
+  tenant_legacy_unknown_memories: number;
+  missing_passport_sources: number;
+  failed_backfills_30d: number;
+  status: "HEALTHY" | "ATTENTION" | "CRITICAL";
+  generated_at: string;
+};
+
+export type ProvenanceIssueRecord = {
+  issue_key: string;
+  issue_type: "service_writer" | "legacy_event" | "passport_source";
+  tenant_id: string | null;
+  tenant_name: string;
+  source_label: string;
+  api_key_name: string | null;
+  api_key_prefix: string | null;
+  sample_reference: string | null;
+  occurrences: number;
+  first_seen: string;
+  last_seen: string;
+  recommended_action: string;
+};
+
+export type ProvenanceIssuesResponse = {
+  data: ProvenanceIssueRecord[];
+  next_cursor: string | null;
+  total_count: number;
+  limit: number;
+  generated_at: string;
+};
+
 export type TenantSummary = {
   tenant_id: string;
   company_name: string;
@@ -265,6 +309,27 @@ export type GlobalAgentVerificationResponse = {
   generated_at: string;
 };
 
+export type OrganisationVerificationRecord = {
+  id: string;
+  tenant_id: string;
+  tenant_name: string;
+  display_name: string;
+  logo_url: string | null;
+  website_url: string | null;
+  category: string;
+  oauth_enabled: boolean;
+  link_token_enabled: boolean;
+  is_verified: boolean;
+  is_public: boolean;
+  connections_count: number;
+  created_at: string;
+};
+
+export type OrganisationVerificationResponse = {
+  data: OrganisationVerificationRecord[];
+  generated_at: string;
+};
+
 async function parseJson<T>(response: Response): Promise<T> {
   const text = await response.text();
   return text ? (JSON.parse(text) as T) : ({} as T);
@@ -293,6 +358,29 @@ export async function adminFetch<T>(
 
 export function getSystemHealth() {
   return adminFetch<SystemHealthResponse>("system-health");
+}
+
+export function getProvenanceHealth() {
+  return adminFetch<ProvenanceHealthResponse>("provenance-health");
+}
+
+export function getProvenanceIssues(params?: {
+  issue_type?: "all" | "service_writer" | "legacy_event" | "passport_source";
+  tenant_id?: string;
+  search?: string;
+  cursor?: string;
+  limit?: number;
+}) {
+  const searchParams = new URLSearchParams();
+  Object.entries(params ?? {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      searchParams.set(key, String(value));
+    }
+  });
+  const suffix = searchParams.toString();
+  return adminFetch<ProvenanceIssuesResponse>(
+    suffix ? `provenance-issues?${suffix}` : "provenance-issues",
+  );
 }
 
 export function getProviderUsage() {
@@ -364,4 +452,48 @@ export function updateGlobalAgentVerification(agentId: string, isVerified: boole
     method: "PATCH",
     body: JSON.stringify({ is_verified: isVerified }),
   });
+}
+
+export function getOrganisationsForVerification(
+  statusFilter: "pending" | "verified" | "all" = "pending",
+) {
+  return adminFetch<OrganisationVerificationResponse>(
+    `organisations?status_filter=${statusFilter}`,
+  );
+}
+
+export function updateOrganisationVerification(
+  organisationId: string,
+  isVerified: boolean,
+) {
+  return adminFetch<OrganisationVerificationRecord>(
+    `organisations/${organisationId}/verification`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ is_verified: isVerified }),
+    },
+  );
+}
+
+export function runTenantProvenanceBackfill(dryRun: boolean) {
+  const params = new URLSearchParams({
+    dry_run: String(dryRun),
+    batch_size: "250",
+    sleep_between_batches_ms: "100",
+  });
+  return adminFetch<{ data: { task_id: string; status: string; dry_run: boolean } }>(
+    "backfill/run/tenant-provenance?" + params.toString(),
+    { method: "POST" },
+  );
+}
+export function runUniversalProvenanceBackfill(dryRun: boolean) {
+  const params = new URLSearchParams({
+    dry_run: String(dryRun),
+    batch_size: "250",
+    sleep_between_batches_ms: "100",
+  });
+  return adminFetch<{ data: { task_id: string; status: string; dry_run: boolean } }>(
+    `backfill/run/universal-provenance?${params.toString()}`,
+    { method: "POST" },
+  );
 }
