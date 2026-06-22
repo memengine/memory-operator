@@ -6,7 +6,8 @@ import useSWR from "swr";
 import { CircuitCard } from "@/components/circuit-card";
 import { LlmProviderCard } from "@/components/llm-provider-card";
 import { QueueTable } from "@/components/queue-table";
-import { getProviderUsage, getSystemHealth, SystemHealthResponse } from "@/lib/admin-api";
+import { ProvenanceHealthPanel } from "@/components/provenance-health-panel";
+import { getProvenanceHealth, getProviderUsage, getSystemHealth, SystemHealthResponse } from "@/lib/admin-api";
 
 const REFRESH_INTERVAL_MS = 10_000;
 const DEFAULT_PROVIDER_ORDER = ["gemini", "openai", "anthropic"];
@@ -47,6 +48,14 @@ export default function SystemHealthPage() {
           return next;
         });
       },
+    },
+  );
+  const { data: provenanceHealth, error: provenanceError } = useSWR(
+    "provenance-health",
+    getProvenanceHealth,
+    {
+      refreshInterval: 60_000,
+      revalidateOnFocus: false,
     },
   );
   const { data: providerUsage } = useSWR("provider-usage", getProviderUsage, {
@@ -206,6 +215,8 @@ export default function SystemHealthPage() {
           )}
         </div>
       </section>
+
+      <ProvenanceHealthPanel data={provenanceHealth} error={provenanceError} />
 
       <section>
         <div className="mb-4 flex items-center justify-between">
