@@ -254,6 +254,19 @@ export type CostSummaryResponse = {
   clarification_resolution_rate?: number | null;
 };
 
+export type ClaimVersionBucket = {
+  scope: "tenant" | "passport";
+  schema_version: number;
+  processor_version: string;
+  revision_count: number;
+};
+
+export type ClaimVersionDistributionResponse = {
+  data: ClaimVersionBucket[];
+  current_schema_version: number;
+  current_processor_version: string;
+  generated_at: string;
+};
 export type BackfillJobResponse = {
   id: string;
   task_name: string;
@@ -421,6 +434,9 @@ export function getCostSummary() {
   return adminFetch<CostSummaryResponse>("cost-summary");
 }
 
+export function getClaimVersionDistribution() {
+  return adminFetch<ClaimVersionDistributionResponse>("provenance-versions");
+}
 export function getBackfillStatus() {
   return adminFetch<BackfillJobResponse[]>("backfill-status");
 }
