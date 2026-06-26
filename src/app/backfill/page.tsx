@@ -5,7 +5,7 @@ import { CheckCircle2, DatabaseZap, FlaskConical, Play } from "lucide-react";
 import useSWR from "swr";
 
 import { BackfillCard } from "@/components/backfill-card";
-import { getBackfillStatus, runTenantProvenanceBackfill, runUniversalProvenanceBackfill } from "@/lib/admin-api";
+import { getBackfillStatus, getClaimVersionDistribution, runTenantProvenanceBackfill, runUniversalProvenanceBackfill } from "@/lib/admin-api";
 
 const REFRESH_INTERVAL_MS = 15_000;
 
@@ -18,6 +18,14 @@ export default function BackfillPage() {
     refreshInterval: REFRESH_INTERVAL_MS,
     revalidateOnFocus: false,
   });
+  const { data: versionData, error: versionError } = useSWR(
+    "claim-version-distribution",
+    getClaimVersionDistribution,
+    {
+      refreshInterval: 60_000,
+      revalidateOnFocus: false,
+    },
+  );
 
   useEffect(() => {
     const timer = window.setInterval(() => setNowTick(Date.now()), 1000);
@@ -69,6 +77,55 @@ export default function BackfillPage() {
         </div>
       </div>
 
+      <section className="mb-8 border-y border-slate-800 py-6" aria-labelledby="claim-versions-title">
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 id="claim-versions-title" className="text-xl font-semibold text-white">Claim version distribution</h2>
+            <p className="mt-2 text-sm text-slate-400">New writes use the current contract. Legacy rows remain readable until a targeted migration is justified.</p>
+          </div>
+          {versionData ? (
+            <p className="text-xs text-slate-400">
+              Current: schema v{versionData.current_schema_version} / {versionData.current_processor_version}
+            </p>
+          ) : null}
+        </div>
+        {versionError ? (
+          <p className="mt-4 text-sm text-red-300">Version distribution is unavailable.</p>
+        ) : versionData && versionData.data.length > 0 ? (
+          <div className="mt-5 overflow-x-auto">
+            <table className="w-full min-w-[640px] border-collapse text-left text-sm">
+              <thead className="border-b border-slate-800 text-xs uppercase tracking-wider text-slate-500">
+                <tr>
+                  <th className="px-3 py-3 font-medium">Scope</th>
+                  <th className="px-3 py-3 font-medium">Schema</th>
+                  <th className="px-3 py-3 font-medium">Processor</th>
+                  <th className="px-3 py-3 text-right font-medium">Revisions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {versionData.data.map((bucket) => {
+                  const isCurrent = bucket.schema_version === versionData.current_schema_version
+                    && bucket.processor_version === versionData.current_processor_version;
+                  return (
+                    <tr key={bucket.scope + bucket.schema_version + bucket.processor_version} className="border-b border-slate-900 text-slate-300">
+                      <td className="px-3 py-3 capitalize">{bucket.scope}</td>
+                      <td className="px-3 py-3">v{bucket.schema_version}</td>
+                      <td className="px-3 py-3">
+                        <span className={isCurrent ? "text-emerald-300" : "text-amber-200"}>
+                          {bucket.processor_version}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-right font-medium text-white">{bucket.revision_count.toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-slate-500">No claim revisions have been written yet.</p>
+        )}
+      </section>
       <section className="mb-8 border-y border-slate-800 py-6" aria-labelledby="passport-provenance-title">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
           <div className="max-w-3xl">
